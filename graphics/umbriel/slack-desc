@@ -1,0 +1,9 @@
+umbriel: umbriel (A Wayland compositor built on wlroots)
+umbriel: umbriel is a Wayland compositor / tiling window manager for
+umbriel: daily use. It offers scrolling, dwindle, master and stacking
+umbriel: layouts, per-output workspaces, window rules, blur, shadows and
+umbriel: rounded corners with fluid animations, plus HDR and VRR.
+umbriel: Written in C++23 on wlroots 0.20 with an in-tree scene graph.
+umbriel:
+umbriel:
+umbriel: https://github.com/noctalia-dev/umbriel

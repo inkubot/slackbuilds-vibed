@@ -1,0 +1,11 @@
+brow6el: brow6el (Chromium web browser for the terminal)
+brow6el: brow6el is a full-featured web browser that runs inside your
+brow6el: terminal. It embeds Chromium through CEF and renders pages with
+brow6el: the Sixel or Kitty terminal graphics protocol (auto-detected).
+brow6el: It provides vim-style modal navigation, hint, mouse and visual
+brow6el: modes, a JavaScript console, bookmarks, user scripts and profiles,
+brow6el: plus DoH, proxy and per-profile Chromium flag configuration.
+brow6el:
+brow6el:
+brow6el:
+brow6el: https://www.brow6el.dev/

@@ -1,0 +1,78 @@
+brow6el (A Chromium web browser for the terminal)
+==================================================
+
+brow6el is a full-featured web browser that runs inside your terminal.
+It embeds Chromium through CEF (Chromium Embedded Framework) and renders
+pages using the Sixel or Kitty terminal graphics protocol, with automatic
+terminal detection. It offers vim-style modal navigation (standard,
+insert, visual and mouse modes), hint mode, a JavaScript console,
+bookmarks, user scripts, per-profile configuration, DNS-over-HTTPS and
+proxy support.
+
+Upstream:   https://codeberg.org/janantos/brow6el
+Homepage:   https://www.brow6el.dev/
+License:    MIT (uses CEF, BSD clause 3 exception; and libsixel, MIT)
+
+This package is built from the pinned upstream commit (see brow6el.info:
+COMMIT / VERSION). The binary self-reports version 0.3.4-45-gcd6be6e.
+
+DEPENDENCIES
+============
+Build (already in Slackware -current core unless noted):
+  cmake, g++ (C++20)
+Requires from SlackBuilds.org (listed in REQUIRES):
+  libsixel  (terminal Sixel graphics library, pkg-config: libsixel)
+
+Runtime (pulled in by the bundled libcef.so; all Slackware core):
+  glib, nspr, nss (+nssutil/smime), dbus, cups, libX11 and the X11/XCB
+  stack (composite, damage, ext, fixes, randr, xcb), libgbm, expat,
+  libxkbcommon, cairo, pango, libudev, alsa-lib, atk, at-spi2.
+
+BUILD NOTES
+===========
+The build downloads the CEF (Chromium) binary distribution, a prebuilt
+~309 MB tarball from cef-builds.spotifycdn.com (sha1 verified). This is
+equivalent to vendoring a prebuilt dependency and is unavoidable; CEF is
+not built from Chromium source here. The build then compiles the
+libcef_dll_wrapper static library from that distribution and links
+brow6el against it.
+
+The CEF runtime (libcef.so plus the .pak resources, locales/, icudtl.dat,
+v8_context_snapshot.bin, SwiftShader libs and the bundled .js scripts) is
+installed next to the binary under /usr/lib/brow6el/ because the binary
+finds libcef.so via RPATH=$ORIGIN. The /usr/bin/brow6el launcher sets
+LD_LIBRARY_PATH and the Vulkan ICD (vk_swiftshader_icd.json) before
+exec'ing the real binary, mirroring the upstream run_brow6el.sh.
+
+NOTE: the package ships with RPATH=/RUNPATH=$ORIGIN on both the binary and
+libcef.so, so they resolve to the co-located files under /usr/lib/brow6el
+rather than any system library of the same name. If a linter flags the
+rpath, this is expected and correct here.
+
+brow6el runs Chromium with --no-sandbox (settings.no_sandbox = true), so
+no setuid chrome-sandbox helper is required.
+
+BUILDING
+========
+  source ./brow6el.info
+  wget -O brow6el-cd6be6e.tar.gz "$DOWNLOAD"
+  md5sum -c <(echo "$MD5SUM  brow6el-cd6be6e.tar.gz")
+  ./brow6el.SlackBuild
+
+The CEF download happens automatically during the build.
+
+RUNNING
+=======
+  brow6el https://example.com
+  brow6el --help
+
+On first run a default Chromium flag config is written to
+~/.brow6el/cef_flags.conf. Press the "I" (insert) / "S" (standard) /
+"V" (visual) / "M" (mouse) keys to switch modes; see the README.md in
+/usr/doc/brow6el-<version>/ for the full key reference.
+
+KNOWN ISSUES
+============
+Kitty graphics over SSH is slow (large base64 transfers per frame); Sixel
+is the recommended protocol, especially over SSH. Requires a terminal
+with Sixel (foot, WezTerm, kitty, Ghostty, ...) or Kitty support.

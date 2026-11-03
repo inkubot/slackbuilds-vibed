@@ -1,0 +1,14 @@
+# Source tarballs and built packages must never be committed
+*.tar
+*.tgz
+*.tar.*
+*.t?z
+*.tar.xz
+*.tar.bz2
+*.tar.lz
+
+# Build logs
+*.log
+
+# Scratch extraction dirs
+/tmp/

@@ -1,0 +1,18 @@
+# brow6el - a Chromium (CEF) web browser for the terminal (MIT).
+PRGNAM="brow6el"
+# Short SHA of the pinned commit; kept dash-free for a clean package name.
+VERSION="cd6be6e"
+# The package is built from this exact upstream commit (matches VERSION above).
+COMMIT="cd6be6e4288d17c1cba38f08d34c8b6fd8859f81"
+HOMEPAGE="https://www.brow6el.dev/"
+DOWNLOAD="https://codeberg.org/janantos/brow6el/archive/cd6be6e4288d17c1cba38f08d34c8b6fd8859f81.tar.gz"
+# Checksums of the source tarball, computed from the real download:
+MD5SUM="217a661a517939b7f9b1f84e218dc943"
+SHA256SUM="89f9fb97a482efef7d855f135fc810e2d6c727aaca29097c0305388786a117ff"
+# The build ALSO downloads the CEF (Chromium) binary distribution (~309 MB):
+#   https://cef-builds.spotifycdn.com/cef_binary_148.0.7+g5b12d32+chromium-148.0.7778.96_linux64_beta_minimal.tar.bz2
+#   sha1 cb7636ccf745bb7b9d52ca0acbf97538fe966dc1
+#FILE=""
+REQUIRES="libsixel"
+MAINTAINER="inkubot <inkubot@gmail.com>"
+EMAIL="inkubot@gmail.com"

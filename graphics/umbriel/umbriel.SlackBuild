@@ -1,0 +1,74 @@
+#!/bin/bash
+# SlackBuild for Umbriel Window Manager / Compositor
+# A Wayland compositor built on wlroots 0.20 + in-tree umbrielfx (C++23, Meson).
+set -e
+
+CWD=$(pwd)
+PRGNAM=umbriel
+VERSION=${VERSION:-0.1.0}
+BUILD=${BUILD:-1}
+TAG=${TAG:-vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+rm -rf "$PKG"
+mkdir -p $TMP $PKG $OUTPUT
+
+case $ARCH in
+  x86_64) SLKCFLAGS="-O2 -fPIC"; LIBDIRSUFFIX=64;;
+  i*86)   SLKCFLAGS="-O2"; LIBDIRSUFFIX=;;
+  *) echo "Unsupported ARCH" >&2; exit 1;;
+esac
+
+HASH="f46c0e2f1072d5920f8b21deb0af7580"
+
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+mkdir -p $PRGNAM-$VERSION
+cd $PRGNAM-$VERSION
+tar xvf $CWD/$PRGNAM-$VERSION.tar.gz --strip-components=1
+chown -R root:root . 2>/dev/null || true
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# ---- Build ----
+# Umbriel is a Meson project. Configure with the FINAL install prefix (the
+# datadir path is compiled in, so it must not be changed after setup).
+# Release build: disable the unit-test/harness targets we don't want.
+meson setup build \
+  --buildtype=release \
+  --prefix=/usr \
+  -Dtests=disabled \
+  -Dharness=disabled \
+  > /dev/null
+meson compile -C build > /dev/null
+
+# ---- Install ----
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a LICENSE* $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cp -a examples/config.toml $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cat $CWD/README > $PKG/usr/doc/$PRGNAM-$VERSION/umbrielREADME 2>/dev/null || true
+cp $CWD/$PRGNAM.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/
+
+# meson install into $PKG/usr
+DESTDIR=$PKG meson install -C build > /dev/null
+
+# Session launcher: replace the upstream launcher with the BSD-init (Slackware) one.
+rm -f $PKG/usr/bin/start-umbriel
+install -m 0755 $CWD/start-umbriel.slackware $PKG/usr/bin/start-umbriel
+rm -rf $PKG/usr/lib/systemd
+
+# Strip only shared libraries; keep the static core archive intact.
+find $PKG -type f -name '*.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+find $PKG -type f -name '*.a' -exec strip --strip-debug {} \; 2>/dev/null || true
+
+# Compress man pages / docs if any.
+find $PKG/usr -type f \( -name '*.1' -o -name '*.3' -o -name '*.5' -o -name '*.7' -o -name '*.8' \) -exec gzip -9 {} \; 2>/dev/null || true
+
+cd $PKG
+mkdir -p $PKG/install
+install -m 0644 $CWD/slack-desc $PKG/install/slack-desc
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$TAG-$BUILD.$PKGTYPE

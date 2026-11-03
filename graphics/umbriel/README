@@ -1,0 +1,57 @@
+umbriel (A Wayland compositor built on wlroots)
+===============================================
+
+umbriel is a modern Wayland compositor / tiling window manager for daily
+use: scrolling, dwindle, master and stacking layouts, per-output
+workspaces, window rules, blur, shadows, rounded corners, fluid
+animations, HDR and variable refresh rate. It is written in C++23 and
+built on wlroots 0.20 with an in-tree scene-graph/renderer fork called
+umbrielfx.
+
+Upstream: https://github.com/noctalia-dev/umbriel
+License: MIT
+
+DEPENDENCIES
+============
+Build/runtime (Slackware -current core, not listed in REQUIRES):
+  wlroots-0.20, wayland (+wayland-protocols), libinput, libei, pixman,
+  libdrm, libdisplay-info, cairo, pango, libxcb (xrender/xshape/xcb-icccm/
+  xcb-ewmh/xcb-xfixes/xcb-xtest), libxkbcommon, glibc
+
+Requires from SlackBuilds.org (listed in REQUIRES):
+  tomlplusplus  (TOML config parser, header-only)
+
+Note on nlohmann/json: Umbriel calls dependency('nlohmann_json') and
+resolves it on this system even though the packaged nlohmann-json does not
+ship a .pc file; meson's CMake backend finds its config package. If a
+fresh build cannot find nlohmann_json, add its CMake config to the meson
+subprojects wraps, or install a variant that provides a .pc file.
+
+Optional build features (default auto; skipped here when the lib is
+absent):
+  jemalloc     - used automatically on glibc if the dev package is present
+  libsystemd   - skipped (not installed); the localed keymap lookup is
+                 disabled and keyboards fall back to libxkbcommon defaults
+
+BUILD RUNTIME (optional, not used):
+  Xwayland     - needed at runtime for X11 apps (spawned on demand)
+  xdg-desktop-portal-umbriel - screen sharing portal backend
+
+BUILDING
+========
+  source ./umbriel.info
+  wget -O umbriel-0.1.0.tar.gz "$DOWNLOAD"
+  md5sum -c <(echo "$MD5SUM  umbriel-0.1.0.tar.gz")
+  ./umbriel.SlackBuild
+
+The build configures Meson with the final /usr prefix (the datadir path is
+compiled in, so it must not be changed afterward) and disables the unit
+test / harness targets.
+
+RUNNING
+=======
+Select "umbriel" in your display manager, or run:
+  start-umbriel
+Configuration is copied from examples/config.toml to
+~/.config/umbriel/config.toml (the package ships the packaged default).
+The default keybind example spawns "kitty", which is not a hard dependency.

@@ -1,0 +1,154 @@
+#!/bin/bash
+# SlackBuild for brow6el - a Chromium (CEF) web browser for the terminal.
+#
+# C++20 / CMake. The app embeds Chromium via CEF and renders pages with the
+# Sixel or Kitty terminal graphics protocol. The CEF runtime (libcef.so plus
+# the .pak / locales / icudtl.dat / SwiftShader files) must live next to the
+# binary (RPATH is $ORIGIN), so we ship it all under /usr/lib/brow6el and
+# provide a /usr/bin/brow6el launcher that sets LD_LIBRARY_PATH and the
+# Vulkan ICD before exec'ing the real binary.
+#
+# The build downloads the CEF (Chromium) binary distribution (~309 MB); this
+# is the equivalent of vendoring a prebuilt dependency and is unavoidable.
+set -e
+
+CWD=$(pwd)
+PRGNAM=brow6el
+# Package version = short SHA of the pinned commit (kept dash-free so the
+# package name stays a clean name-version-tag-build for installpkg).
+VERSION=${VERSION:-cd6be6e}
+BUILD=${BUILD:-1}
+TAG=${TAG:-vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+# Exact source commit (full SHA). This is what the package is built from.
+COMMIT="cd6be6e4288d17c1cba38f08d34c8b6fd8859f81"
+# Version string the binary self-reports (matches `git describe` at $COMMIT).
+BINVERSION="0.3.4-45-gcd6be6e"
+
+# CEF (Chromium) binary distribution. Prebuilt, one large download.
+CEF_VERSION="148.0.7+g5b12d32+chromium-148.0.7778.96"
+CEF_CHANNEL="_beta"
+CEF_SHA1="cb7636ccf745bb7b9d52ca0acbf97538fe966dc1"
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+rm -rf "$TMP" "$PKG"
+mkdir -p $TMP $PKG $OUTPUT
+
+case $ARCH in
+  x86_64)  PLATFORM="linux64";;
+  aarch64) PLATFORM="linuxarm64";;
+  *) echo "Unsupported ARCH: $ARCH" >&2; exit 1;;
+esac
+
+# ---- Source (pinned commit tarball) -----------------------------------------
+SRC_URL="https://codeberg.org/janantos/brow6el/archive/${COMMIT}.tar.gz"
+SRC_TARBALL="$PRGNAM-$VERSION.tar.gz"
+if [ ! -f "$TMP/$SRC_TARBALL" ]; then
+  echo "Downloading source: $SRC_URL"
+  wget -q -O "$TMP/$SRC_TARBALL" "$SRC_URL"
+fi
+
+cd $TMP
+rm -rf $PRGNAM-src
+mkdir -p $PRGNAM-src
+tar xzf "$SRC_TARBALL" -C "$PRGNAM-src" --strip-components=1
+cd "$PRGNAM-src"
+chown -R root:root . 2>/dev/null || true
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# ---- CEF (Chromium) binary distribution ------------------------------------
+CEF_TARBALL="cef_binary_${CEF_VERSION}_${PLATFORM}${CEF_CHANNEL}_minimal.tar.bz2"
+CEF_URL="https://cef-builds.spotifycdn.com/${CEF_TARBALL}"
+if [ ! -d "cef_binary" ]; then
+  if [ ! -f "$CEF_TARBALL" ]; then
+    echo "Downloading CEF distribution: $CEF_URL"
+    wget -q -O "$CEF_TARBALL" "$CEF_URL"
+  fi
+  echo "Verifying CEF sha1..."
+  ACTUAL=$(sha1sum "$CEF_TARBALL" | awk '{print $1}')
+  if [ "$ACTUAL" != "$CEF_SHA1" ]; then
+    echo "CEF sha1 mismatch:" >&2
+    echo "  expected: $CEF_SHA1" >&2
+    echo "  actual:   $ACTUAL" >&2
+    exit 1
+  fi
+  echo "sha1 OK. Extracting CEF (this is large)..."
+  tar xjf "$CEF_TARBALL"
+  ln -sf "cef_binary_${CEF_VERSION}_${PLATFORM}${CEF_CHANNEL}_minimal" cef_binary
+fi
+
+# ---- Build the CEF wrapper static library ----------------------------------
+# brow6el links against libcef_dll_wrapper.a, built from the CEF distribution.
+cd cef_binary
+mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release .. > /dev/null
+make -j"$(nproc)" libcef_dll_wrapper > /dev/null
+cd ../..
+
+# ---- Pin the binary version -------------------------------------------------
+# The commit tarball has no .git, so `git describe` in CMakeLists fails and it
+# falls back to a hardcoded dev version. Replace that fallback with the real
+# version so `brow6el --version` / the user-agent reflect the pinned commit.
+sed -i 's/0\.0\.999-dev/'"$BINVERSION"'/g' CMakeLists.txt
+
+# ---- Configure + build brow6el ---------------------------------------------
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release > /dev/null
+cmake --build build -j"$(nproc)" > /dev/null
+
+# ---- Assemble the package ---------------------------------------------------
+APPDIR=$PKG/usr/lib/$PRGNAM
+mkdir -p "$APPDIR"
+cd build
+# Everything below must sit next to the binary (RPATH=$ORIGIN). The list
+# mirrors the upstream portable build plus tutorial.html and extensions/.
+cp "$PRGNAM"                "$APPDIR/"
+cp -r locales scripts      "$APPDIR/" 2>/dev/null || true
+cp -r extensions           "$APPDIR/" 2>/dev/null || true
+cp *.pak                   "$APPDIR/" 2>/dev/null || true
+cp *.bin                   "$APPDIR/" 2>/dev/null || true
+cp *.so                    "$APPDIR/" 2>/dev/null || true
+cp *.so.1                  "$APPDIR/" 2>/dev/null || true
+cp *.dat                   "$APPDIR/" 2>/dev/null || true
+cp *.json                  "$APPDIR/" 2>/dev/null || true
+cp *.js                    "$APPDIR/" 2>/dev/null || true
+cp tutorial.html           "$APPDIR/" 2>/dev/null || true
+cd "$TMP/$PRGNAM-src"
+
+# Launcher wrapper (mirrors the upstream run_brow6el.sh).
+mkdir -p $PKG/usr/bin
+cat > $PKG/usr/bin/$PRGNAM <<EOF
+#!/bin/bash
+DIR="/usr/lib/$PRGNAM"
+export LD_LIBRARY_PATH="\$DIR:\$LD_LIBRARY_PATH"
+export VK_ICD_FILENAMES="\$DIR/vk_swiftshader_icd.json"
+exec "\$DIR/$PRGNAM" "\$@"
+EOF
+chmod 0755 $PKG/usr/bin/$PRGNAM
+
+# ---- Docs -------------------------------------------------------------------
+DOCDIR=$PKG/usr/doc/$PRGNAM-$VERSION
+mkdir -p "$DOCDIR"
+cp -a README.md        "$DOCDIR/" 2>/dev/null || true
+cp -a USERSCRIPTS.md   "$DOCDIR/" 2>/dev/null || true
+cat $CWD/README        > "$DOCDIR/brow6elREADME" 2>/dev/null || true
+cp $CWD/$PRGNAM.SlackBuild "$DOCDIR/"
+
+# ---- Permissions + strip ----------------------------------------------------
+chmod 0755 "$APPDIR/$PRGNAM" 2>/dev/null || true
+find $PKG -type d -exec chmod 0755 {} \;
+# Strip the main binary and the bundled shared libraries.
+strip --strip-unneeded "$APPDIR/$PRGNAM" 2>/dev/null || true
+find "$APPDIR" -type f -name '*.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+
+# No man pages shipped; nothing to gzip.
+
+# ---- Package ----------------------------------------------------------------
+cd $PKG
+mkdir -p install
+install -m 0644 $CWD/slack-desc install/slack-desc
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$TAG-$BUILD.$PKGTYPE

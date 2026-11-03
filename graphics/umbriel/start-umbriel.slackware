@@ -1,0 +1,153 @@
+#!/bin/sh
+# start-umbriel - Umbriel session launcher for BSD-init systems (Slackware et al.)
+#
+# Replaces the packaged start-umbriel, which assumes a systemd user manager.
+#
+# Main difference from the packaged script: the D-Bus session bus is created
+# once, at the very top, before the login shell and before any service can be
+# started. Everything in the session (compositor, portals, gnome-keyring,
+# notification daemons, ...) then lives on that single bus.
+#
+# The packaged script does the opposite: it first runs the login shell and only
+# then wraps the compositor in `dbus-run-session`. Services started by the
+# login profile end up on a different (autolaunched) bus than the compositor.
+#
+# Nested launches (WAYLAND_DISPLAY / DISPLAY already set) reuse the parent
+# session untouched.
+
+set -u
+
+UMBRIEL_BIN=${UMBRIEL_BIN:-/usr/bin/umbriel}
+
+say() { printf 'start-umbriel: %s\n' "$*" >&2; }
+
+if [ ! -x "$UMBRIEL_BIN" ]; then
+    say "not executable: $UMBRIEL_BIN"
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 1. XDG_RUNTIME_DIR
+# elogind usually creates /run/user/$UID at login, but not always (and not when
+# the launcher is started from a service). wlroots needs a valid runtime dir.
+# ---------------------------------------------------------------------------
+if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -d "${XDG_RUNTIME_DIR:-}" ]; then
+    if [ -d "/run/user/$(id -u)" ]; then
+        XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    else
+        XDG_RUNTIME_DIR="${TMPDIR:-/tmp}/runtime-$(id -u)"
+        (umask 077 && mkdir -p "$XDG_RUNTIME_DIR") || {
+            say "cannot create $XDG_RUNTIME_DIR"
+            exit 1
+        }
+    fi
+fi
+export XDG_RUNTIME_DIR
+
+# ---------------------------------------------------------------------------
+# 2. Nested launch: use the host session as-is
+# Do this before creating a bus so a nested compositor inherits the host one.
+# ---------------------------------------------------------------------------
+if [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${WAYLAND_SOCKET:-}" ] ||
+   [ -n "${DISPLAY:-}" ]; then
+    exec "$UMBRIEL_BIN" "$@"
+fi
+
+# ---------------------------------------------------------------------------
+# 3. One D-Bus session bus for the whole session
+# ---------------------------------------------------------------------------
+# Prefer a bus that already exists: systemd-style user bus at
+# $XDG_RUNTIME_DIR/bus, or an address inherited from a display manager.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "${XDG_RUNTIME_DIR}/bus" ]; then
+    DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+    export DBUS_SESSION_BUS_ADDRESS
+fi
+
+# No bus: re-exec the whole launcher inside one, before the login shell runs.
+# UMBRIEL_BUS_READY stops the recursion if dbus-run-session fails to set the
+# address for some reason.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -z "${UMBRIEL_BUS_READY:-}" ]; then
+    self=$0
+    case $self in
+        */*) ;;
+        *) self=$(command -v -- "$self" 2>/dev/null) || self=$0 ;;
+    esac
+
+    UMBRIEL_BUS_READY=1
+    export UMBRIEL_BUS_READY
+
+    if command -v dbus-run-session >/dev/null 2>&1; then
+        exec dbus-run-session -- "$self" "$@"
+    elif command -v dbus-daemon >/dev/null 2>&1; then
+        DBUS_SESSION_BUS_ADDRESS=$(dbus-daemon --session --fork --print-address=1) || {
+            say "could not start dbus-daemon"
+            exit 1
+        }
+        export DBUS_SESSION_BUS_ADDRESS
+    else
+        say "no D-Bus session bus available (install dbus)"
+        exit 1
+    fi
+fi
+unset UMBRIEL_BUS_READY
+
+# ---------------------------------------------------------------------------
+# 4. Apply the login profile exactly once
+# The profile is what normally adds PATH entries and starts session agents, so
+# run it, but only after the bus above exists.
+# ---------------------------------------------------------------------------
+if [ "${UMBRIEL_LOGIN_REENTRY:-0}" != 1 ]; then
+    login_shell_kind=
+    if [ -n "${SHELL:-}" ] && [ -x "$SHELL" ] && [ -r /etc/shells ]; then
+        case "${SHELL##*/}" in
+            fish) login_shell_kind=fish ;;
+            ash | bash | dash | ksh | ksh93 | mksh | oksh | sh | yash | zsh)
+                login_shell_kind=bourne
+                ;;
+        esac
+        if [ -n "$login_shell_kind" ]; then
+            shell_listed=false
+            while IFS= read -r candidate; do
+                if [ "$candidate" = "$SHELL" ]; then
+                    shell_listed=true
+                    break
+                fi
+            done < /etc/shells
+            if [ "$shell_listed" = false ]; then
+                login_shell_kind=
+            fi
+        fi
+    fi
+
+    case "$login_shell_kind" in
+        fish)
+            UMBRIEL_LOGIN_REENTRY=1 exec "$SHELL" -l -c 'exec $argv' "$0" "$@"
+            ;;
+        bourne)
+            UMBRIEL_LOGIN_REENTRY=1 exec "$SHELL" -l -c 'exec "$@"' "$SHELL" "$0" "$@"
+            ;;
+    esac
+fi
+unset UMBRIEL_LOGIN_REENTRY
+
+# Drop any session identity inherited from a foreign session. Umbriel sets its
+# own values once it is running.
+unset WAYLAND_DISPLAY WAYLAND_SOCKET DISPLAY UMBRIEL_SOCKET \
+    XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE
+
+# ---------------------------------------------------------------------------
+# 5. Publish the environment to the bus
+# Without this, D-Bus-activated helpers (portals, secret service prompter,
+# notification daemons) start without WAYLAND_DISPLAY/DISPLAY and can fail or
+# ask the same question over and over.
+# ---------------------------------------------------------------------------
+XDG_SESSION_TYPE=wayland
+XDG_SESSION_DESKTOP=umbriel
+XDG_CURRENT_DESKTOP=umbriel
+export XDG_SESSION_TYPE XDG_SESSION_DESKTOP XDG_CURRENT_DESKTOP
+
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --all 2>/dev/null || :
+fi
+
+exec "$UMBRIEL_BIN" "$@"
