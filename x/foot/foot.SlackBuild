@@ -1,0 +1,99 @@
+#!/bin/bash
+# SlackBuild for foot - a minimalist, portable Wayland terminal emulator.
+#
+# A fast Wayland terminal using fcft for font rendering, with optional sixel
+# and kitty image support. Built with meson; all of foot's wrap dependencies
+# (fcft, tllist, wayland-protocols) resolve to the system copies, so no
+# network access is needed at build time.
+set -e
+
+CWD=$(pwd)
+PRGNAM=foot
+VERSION=${VERSION:-1.28.0}
+BUILD=${BUILD:-1}
+TAG=${TAG:-vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+rm -rf "$TMP" "$PKG"
+mkdir -p $TMP $PKG $OUTPUT
+
+# ---- Source (release tarball) ----------------------------------------------
+SRC_URL="https://codeberg.org/dnkl/foot/archive/1.28.0.tar.gz"
+SRC_TARBALL="$PRGNAM-$VERSION.tar.gz"
+if [ ! -f "$TMP/$SRC_TARBALL" ]; then
+  echo "Downloading source: $SRC_URL"
+  wget -q -O "$TMP/$SRC_TARBALL" "$SRC_URL"
+fi
+
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+mkdir -p $PRGNAM-$VERSION
+tar xzf "$SRC_TARBALL" -C "$PRGNAM-$VERSION" --strip-components=1
+cd $PRGNAM-$VERSION
+chown -R root:root . 2>/dev/null || true
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# ---- Build -----------------------------------------------------------------
+# foot's project() defaults werror=true, so warnings become errors and the
+# build breaks on -current with newer compilers; disable it. grapheme-clustering
+# and utmp-backend are pinned explicitly (instead of auto-resolving at build
+# time) so the package is reproducible:
+#   grapheme-clustering=disabled   libutf8proc not installed
+#   utmp-backend=none              libutempter not installed (foot works fine)
+#   docs=enabled                   scdoc present -> builds the man pages
+#   tests=false                    no test suite needed
+meson setup build \
+  --prefix=/usr \
+  --buildtype=release \
+  -Dwerror=false \
+  -Dgrapheme-clustering=disabled \
+  -Dutmp-backend=none \
+  -Ddocs=enabled \
+  -Dtests=false > /dev/null
+
+meson compile -C build > /dev/null
+
+# ---- Install ----------------------------------------------------------------
+DOCDIR=$PKG/usr/doc/$PRGNAM-$VERSION
+mkdir -p "$DOCDIR"
+cp -a LICENSE* "$DOCDIR/" 2>/dev/null || true
+cat $CWD/README > "$DOCDIR/footREADME" 2>/dev/null || true
+cp $CWD/$PRGNAM.SlackBuild "$DOCDIR/"
+
+# meson install into $PKG/usr
+DESTDIR=$PKG meson install -C build > /dev/null
+
+# The upstream docs land under /usr/share/doc/foot; move them to the Slackware
+# doc dir (and remove any now-empty share/doc dir).
+if [ -d "$PKG/usr/share/doc/$PRGNAM" ]; then
+  mv "$PKG/usr/share/doc/$PRGNAM"/* "$DOCDIR/" 2>/dev/null || true
+  rmdir "$PKG/usr/share/doc/$PRGNAM" 2>/dev/null || true
+fi
+# Remove any now-empty shared doc dir left behind by the meson install.
+rmdir "$PKG/usr/share/doc" 2>/dev/null || true
+
+# Config: install foot.ini as a .new so doinst.sh can place it via config()
+# without clobbering an existing user config on upgrade.
+mkdir -p "$PKG/etc/xdg/foot"
+if [ -f "$PKG/etc/xdg/foot/foot.ini" ]; then
+  mv "$PKG/etc/xdg/foot/foot.ini" "$PKG/etc/xdg/foot/foot.ini.new"
+fi
+
+# Strip the binaries.
+strip --strip-unneeded "$PKG/usr/bin/foot" 2>/dev/null || true
+strip --strip-unneeded "$PKG/usr/bin/footclient" 2>/dev/null || true
+
+# Compress man pages.
+find "$PKG/usr" -type f \( -name '*.1' -o -name '*.3' -o -name '*.5' -o -name '*.7' \) -exec gzip -9 {} \; 2>/dev/null || true
+
+# ---- Package ----------------------------------------------------------------
+cd $PKG
+mkdir -p install
+install -m 0644 $CWD/slack-desc install/slack-desc
+install -m 0755 $CWD/doinst.sh install/doinst.sh
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$TAG-$BUILD.$PKGTYPE

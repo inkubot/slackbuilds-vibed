@@ -1,0 +1,11 @@
+foot: foot (A Wayland terminal emulator)
+foot: foot is a minimalist, portable, and fast Wayland terminal emulator
+foot: for Linux and macOS. It renders text with fcft, supports the sixel
+foot: and kitty image protocols, OSC 99 notifications, and a small memory
+foot: footprint with quick startup. It is configured through a single
+foot: foot.ini file under /etc/xdg/foot/ (or ~/.config/foot/foot.ini).
+foot:
+foot:
+foot:
+foot:
+foot: https://codeberg.org/dnkl/foot

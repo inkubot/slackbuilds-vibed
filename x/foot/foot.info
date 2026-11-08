@@ -1,0 +1,14 @@
+# foot - a Wayland terminal emulator (MIT).
+PRGNAM="foot"
+VERSION="1.28.0"
+HOMEPAGE="https://codeberg.org/dnkl/foot"
+DOWNLOAD="https://codeberg.org/dnkl/foot/archive/1.28.0.tar.gz"
+# MD5SUM of the release tarball, computed from the real download:
+MD5SUM="cf718d6b2713777ee4ca323f807434dc"
+#FILE=""
+# Downloaded and renamed to foot-1.28.0.tar.gz before building.
+# All Slackware-core deps (pixman-1, wayland-client/cursor, wayland-protocols,
+# xkbcommon, fontconfig) are provided by a full install and are NOT listed.
+REQUIRES="fcft tllist"
+MAINTAINER="inkubot <inkubot@gmail.com>"
+EMAIL="inkubot@gmail.com"

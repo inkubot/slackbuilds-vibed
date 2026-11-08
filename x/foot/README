@@ -1,0 +1,63 @@
+foot (A Wayland terminal emulator)
+==================================
+
+foot is a minimalist, portable, and fast Wayland terminal emulator for Linux
+and macOS. It renders text with the fcft font library, supports the sixel and
+kitty image protocols, OSC 99 notifications, and starts up quickly with a
+small memory footprint. Configuration lives in a single foot.ini file (system
+default /etc/xdg/foot/foot.ini, user override ~/.config/foot/foot.ini).
+
+Upstream: https://codeberg.org/dnkl/foot
+License:  MIT
+
+DEPENDENCIES
+============
+Build/runtime (Slackware -current core, NOT listed in REQUIRES):
+  pixman-1, wayland (+wayland-client, wayland-cursor, wayland-protocols),
+  libxkbcommon, fontconfig
+
+Requires from SlackBuilds.org / local builds (listed in REQUIRES):
+  fcft    font library used by foot for text rendering (>=3.3.1, <4.0.0)
+  tllist  tiny linked-list library (header-only)
+
+The fcft, tllist and wayland-protocols packages are foot's meson wrap
+dependencies; meson finds their system copies via pkg-config and does not
+download or build them.
+
+OPTIONAL DEPENDENCIES (excluded in this build for reproducibility):
+  libutf8proc  - needed for grapheme-clustering. NOT installed; the build
+                 pins -Dgrapheme-clustering=disabled, so foot ships without
+                 grapheme-aware cursor/selection movement (matches foot's
+                 auto-resolved behaviour when the lib is absent).
+  libutempter  - the Linux utmp logging backend. NOT installed; the build
+                 pins -Dutmp-backend=none, so foot does not log login/logout
+                 to utmp/wtmp. foot runs normally without it.
+  systemd      - optional; ignored (not installed).
+
+BUILDING
+========
+  source ./foot.info
+  wget -O foot-1.28.0.tar.gz "$DOWNLOAD"
+  md5sum -c <(echo "$MD5SUM  foot-1.28.0.tar.gz")
+  ./foot.SlackBuild
+
+The build configures Meson with the final /usr prefix and disables werror
+(warnings-as-errors), which foot enables by default and which breaks under
+Slackware -current with newer compilers.
+
+RUNNING
+=======
+  foot                      # start foot with default config
+  foot --help               # list options (e.g. -e CMD to run a command)
+
+On first install foot.ini is created from the packaged default. Edit it to
+choose a theme, font, glyph width, key bindings, etc. See foot.ini.5 for
+details.
+
+KNOWN ISSUES
+============
+- With utmp-backend=none, login/logout sessions are not recorded in utmp.
+- With grapheme-clustering disabled, combining-character clusters are not
+  handled as single graphemes during cursor movement or selection.
+Both can be re-enabled by installing libutempter / libutf8proc and switching
+the corresponding -D option to auto/enabled, then rebuilding.
