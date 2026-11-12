@@ -1,0 +1,15 @@
+# mako - a lightweight notification daemon for Wayland (MIT).
+PRGNAM="mako"
+VERSION="1.11.0"
+HOMEPAGE="https://github.com/emersion/mako"
+DOWNLOAD="https://github.com/emersion/mako/archive/refs/tags/v1.11.0.tar.gz"
+# MD5SUM of the release tarball, computed from the real download:
+MD5SUM="223f8bc0d4fb27aaad8b7f85c603396b"
+#FILE=""
+# Downloaded and renamed to mako-1.11.0.tar.gz before building.
+# Slackware-core deps (cairo, pango, glib2, gdk-pixbuf2, wayland,
+# wayland-protocols, scdoc, bash-completion) are provided by a full install
+# and are NOT listed.
+REQUIRES="elogind"
+MAINTAINER="inkubot <inkubot@gmail.com>"
+EMAIL="inkubot@gmail.com"

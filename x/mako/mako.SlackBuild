@@ -1,0 +1,90 @@
+#!/bin/bash
+# SlackBuild for mako - a lightweight notification daemon for Wayland.
+#
+# mako implements the FreeDesktop notification spec over D-Bus and includes
+# makoctl (a command-line control tool). Built with meson; all dependencies
+# are Slackware core, plus elogind for the sd-bus API (pinned explicitly).
+set -e
+
+CWD=$(pwd)
+PRGNAM=mako
+VERSION=${VERSION:-1.11.0}
+BUILD=${BUILD:-1}
+TAG=${TAG:-vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+
+mkdir -p $TMP $PKG $OUTPUT
+rm -rf "$PKG" "$TMP/$PRGNAM-$VERSION"
+mkdir -p $PKG $TMP/$PRGNAM-$VERSION
+
+case $ARCH in
+  x86_64) SLKCFLAGS="-O2 -fPIC"; LIBDIRSUFFIX=64;;
+  i*86)   SLKCFLAGS="-O2"; LIBDIRSUFFIX=;;
+  *) echo "Unsupported ARCH: $ARCH" >&2; exit 1;;
+esac
+
+# ---- Source (release tarball) ----------------------------------------------
+SRC_URL="https://github.com/emersion/mako/archive/refs/tags/v${VERSION}.tar.gz"
+SRC_TARBALL="$PRGNAM-$VERSION.tar.gz"
+if [ ! -f "$TMP/$SRC_TARBALL" ]; then
+  echo "Downloading source: $SRC_URL"
+  wget -q --tries=3 --timeout=60 -O "$TMP/$SRC_TARBALL" "$SRC_URL"
+fi
+
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+mkdir -p $PRGNAM-$VERSION
+tar xzf "$SRC_TARBALL" -C "$PRGNAM-$VERSION" --strip-components=1
+cd $PRGNAM-$VERSION
+chown -R root:root . 2>/dev/null || true
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# ---- Build -----------------------------------------------------------------
+# sd-bus provider pinned to libelogind (libsystemd is not installed on this
+# system; elogind provides a compatible API and .pc file). The other flags
+# are pinned explicitly (instead of auto-resolving) for reproducibility:
+#   icons=enabled        gdk-pixbuf-2.0 (Slackware core) present
+#   man-pages=enabled    scdoc (Slackware core) present
+#   bash-completions     bash-completion (Slackware core) present
+# zsh and fish completions are left disabled (not in a full install).
+# CFLAGS is passed through the environment (this project has no cflags
+# meson option).
+export CFLAGS="$SLKCFLAGS"
+meson setup build \
+  --prefix=/usr \
+  --buildtype=release \
+  -Dsd-bus-provider=libelogind \
+  -Dicons=enabled \
+  -Dman-pages=enabled \
+  -Dbash-completions=true > /dev/null
+
+meson compile -C build > /dev/null
+DESTDIR=$PKG meson install -C build > /dev/null
+
+# ---- Docs ------------------------------------------------------------------
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a LICENSE README.md $PKG/usr/doc/$PRGNAM-$VERSION/
+cp $CWD/README $PKG/usr/doc/$PRGNAM-$VERSION/README
+cp $CWD/$PRGNAM.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/
+
+# ---- Strip / compress ------------------------------------------------------
+find $PKG -type f -perm -u+x -exec strip --strip-unneeded {} \; 2>/dev/null || true
+find $PKG -type f -name '*.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+# man pages: meson installs to the default mandir (/usr/share/man)
+for mdir in $PKG/usr/man $PKG/usr/share/man; do
+  if [ -d "$mdir" ]; then
+    find "$mdir" -type f \( -name '*.1' -o -name '*.5' \) -exec gzip -9 {} \;
+  fi
+done
+find $PKG -type d -empty -delete 2>/dev/null || true
+
+# ---- Package ---------------------------------------------------------------
+cd $PKG
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$TAG-$ARCH.$PKGTYPE
+rm -rf $PKG
+cd $TMP

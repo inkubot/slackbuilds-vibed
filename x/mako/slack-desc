@@ -1,0 +1,11 @@
+mako: mako (a lightweight notification daemon for Wayland)
+mako: mako is a lightweight notification daemon for Wayland,
+mako: tested with Sway. It implements the FreeDesktop Notifications
+mako: Specification over D-Bus, with support for custom match rules,
+mako: renderers, icons, animations, and a simple mako.config file.
+mako:
+mako: Also includes makoctl, a command-line tool to control mako
+mako: (list, dismiss, pause and resume notifications).
+mako:
+mako:
+mako: https://github.com/emersion/mako

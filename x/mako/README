@@ -1,0 +1,43 @@
+mako
+====
+
+A lightweight notification daemon for Wayland compositors (tested on
+Sway). It implements the FreeDesktop Notifications Specification over
+D-Bus, with support for custom match rules, renderers, icons and
+animations.
+
+This package also includes makoctl, a command-line tool to control
+mako (list, dismiss, pause and resume notifications).
+
+Homepage: https://github.com/emersion/mako
+
+Dependencies
+------------
+
+Slackware core (full install): cairo, pango, glib2, gdk-pixbuf2,
+wayland (client/cursor), wayland-protocols >= 1.32, scdoc (man pages),
+bash-completion (completions).
+
+SBo / other: elogind (provides the sd-bus API; pinned via
+-Dsd-bus-provider=libelogind in the SlackBuild).
+
+Build notes
+-----------
+
+Built with meson. All feature flags are pinned explicitly for
+reproducibility:
+
+  -Dsd-bus-provider=libelogind  libsystemd is not installed; elogind
+                                 provides a compatible sd-bus API.
+  -Dicons=enabled               gdk-pixbuf-2.0 is core.
+  -Dman-pages=enabled           scdoc is core (>= 1.9.7 required).
+  -Dbash-completions=true       bash-completion is core; zsh/fish
+                                 completions left disabled (not in a
+                                 full install).
+
+Running
+-------
+
+mako starts on demand via D-Bus activation. For Sway, add
+`exec mako` to your config. Configuration lives in mako.config
+(see `man mako.5`).
