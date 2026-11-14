@@ -1,0 +1,15 @@
+# NOTE: upstream ships no release tarball with its two git submodules, so the
+# source tarball is vendored into this package dir (games/q2repro/). The
+# .SlackBuild extracts it from $CWD (no wget). DOWNLOAD/MD5SUM below give the
+# provenance commit and the verified MD5 of the vendored tarball.
+PRGNAM="q2repro"
+VERSION="9619f8e2"
+HOMEPAGE="https://github.com/res2k/q2repro"
+DOWNLOAD="https://github.com/res2k/q2repro/archive/9619f8e2.tar.gz"
+FILE=""
+MD5SUM="a89177c2b24a8a56319dfa0f0a3c0ab1"
+#MD5SUM_x86_64=""
+# REQUIRES = non-core (SBo) runtime libs, build-order aware, no version pins.
+REQUIRES="SDL3 OpenAL-Soft jsoncpp"
+MAINTAINER="inkubot <inkubot@gmail.com>"
+EMAIL="inkubot@gmail.com"

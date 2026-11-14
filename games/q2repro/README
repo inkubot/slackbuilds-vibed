@@ -1,0 +1,102 @@
+# q2repro
+
+q2repro is a fork of Q2PRO, which is itself a drop-in replacement for the Kex
+Quake II "re-release" engine. It plays the full re-release content and is
+compatible with the existing Quake II network protocols. It ships both a client
+(`q2repro`) and a dedicated server (`q2reproded`), plus a game DLL
+(`game_x86_64.so`) that runs inside the game directory.
+
+Upstream: https://github.com/res2k/q2repro  (GPL-2.0-or-later)
+
+## Build system
+
+Meson. Build steps (same as upstream, pinned for reproducibility):
+
+    meson setup build --prefix=/usr -Dlibdir=/usr/lib64 \
+                      -Dsystem-wide=true -Dlibcurl=enabled \
+                      --wrap-mode=nofallback
+    meson compile -C build
+    DESTDIR=$PKG meson install -C build
+
+`--wrap-mode=nofallback` forces every optional library to come from the system
+via pkg-config; no subproject is downloaded and no network access is needed at
+build time. `system-wide=true` installs into `/usr` (the portable/default mode
+installs into a relative `./` tree, which is not what we want here).
+
+## Sources / git submodules
+
+Upstream provides no release tarball that includes its two git submodules, so
+this package vendors a tarball (`q2repro-<rev>.tar.xz`, git-ignored, kept next
+to this SlackBuild) built with:
+
+    git archive-style snapshot of commit <rev> + q2proto/ and
+    subprojects/rerelease-game/ contents, with all .git and builddir dirs
+    stripped.
+
+`q2proto` and `rerelease-game` are required at compile time. They are NOT Meson
+"wrap" subprojects, so `--wrap-mode` alone cannot fetch them; they must be
+baked into the tarball. To regenerate the tarball for a new commit:
+
+    REV=<short-sha>
+    rm -rf /tmp/q2repro-src-$REV && mkdir -p /tmp/q2repro-src-$REV
+    ( cd /tmp/q2repro-src-$REV && find <repo> -maxdepth 1 -mindepth 1 \
+        ! -name builddir -exec cp -a {} . \; )
+    for sub in q2proto subprojects/rerelease-game; do
+      find /tmp/q2repro-src-$REV/$sub \( -name .git -o -name builddir \) \
+        -prune -exec rm -rf {} + 2>/dev/null || true
+    done
+    tar -C /tmp/q2repro-src-$REV -cJf \
+      games/q2repro/q2repro-$REV.tar.xz .
+    md5sum games/q2repro/q2repro-$REV.tar.xz   # update MD5SUM in q2repro.info
+
+## Dependencies
+
+Build and runtime libraries resolved from the built binaries / meson config:
+
+Core (Slackware full install, not listed in REQUIRES):
+  zlib, libpng, libjpeg-turbo, ffmpeg (libavcodec/format/util/swresample/scale),
+  libX11, libXi, wayland, wayland-protocols, libdecor, libglvnd/mesa.
+
+SBo / other (listed in REQUIRES):
+  SDL3        - video + audio backend
+  OpenAL-Soft - sound backend (preferred audio path)
+  jsoncpp     - pulled in by the rerelease-game DLL
+
+Explicitly enabled:
+  libcurl  - HTTP downloads. Enabled with -Dlibcurl=enabled (a hard dep now,
+             since curl is installed and pkg-config resolves it, including the
+             mit-krb5-gssapi entry). curl is a Slackware core package, so it is
+             NOT listed in REQUIRES. With --wrap-mode=nofallback meson links the
+             system libcurl rather than building the vendored curl wrap subproject.
+
+Optional features are controlled by meson_options.txt (e.g. avcodec, libpng,
+libjpeg, openal, sdl3, x11, wayland, mvd-server/mvd-client). With
+`--wrap-mode=nofallback` each is enabled automatically if its system
+development package is present.
+
+## Requirements to actually run
+
+A full (or demo) copy of Quake II, patched to 3.20. Copy the game data into the
+installed game directory:
+
+    baseq2/pak*.pak and baseq2/players  ->  /usr/lib64/q2repro/baseq2/
+
+The client also writes config to ~/.q2repro (see the `homedir` meson option).
+
+## Known issues / notes
+
+- The in-binary version string is read by `version.py` from a `VERSION` file
+  (written by the SlackBuild, since the vendored tarball has no .git). The
+  SlackBuild hardcodes `r4625~9619f8e2`; bump the commit count/sha on rebuild.
+- Man pages (docutils RST in `man/`) are converted with `rst2man` and installed
+  to /usr/man/man6. If `rst2man` is missing they are skipped silently.
+- `q2reproded --version` prints mapdb.json warnings when no game data is
+  present; that is expected, not a build failure.
+
+- The package filename includes ARCH (`q2repro-$VERSION-$ARCH-$BUILD.$TAG.txz`),
+  e.g. `q2repro-9619f8e2-x86_64-1._vibed.txz`. Omitting ARCH breaks pkgtools'
+  `package_name()` resolution of the base name, so the description would silently
+  fail to record on install. Verified against /sbin/installpkg.
+- The `slack-desc` is copied into `$PKG/install/` before makepkg. pkgtools reads
+  `install/slack-desc` for the on-screen/stored description and removes it on
+  install; a root-level `slack-desc` would instead be installed to `/slack-desc`.

@@ -1,0 +1,89 @@
+#!/bin/bash
+# SlackBuild for q2repro - Quake II client + dedicated server (Q2PRO fork).
+# Meson build. The source tarball already contains the two git submodules
+# (q2proto and subprojects/rerelease-game); they are required at compile time.
+# They are NOT Meson "wrap" subprojects, so --wrap-mode alone cannot fetch
+# them -- they must be baked into the vendored tarball.
+#
+# We build with --wrap-mode=nofallback: every optional library (SDL3, OpenAL,
+# libpng, libcurl, ...) is taken from the system via pkg-config and no wrap
+# subproject is ever built, so there is no network access and no subproject
+# download at build time (and openal-soft's wrap is not forced).
+set -e
+
+CWD=$(pwd)
+PRGNAM=q2repro
+VERSION=${VERSION:-9619f8e2}
+BUILD=${BUILD:-1}
+TAG=${TAG:-_vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+mkdir -p $TMP $PKG $OUTPUT
+
+case $ARCH in
+  x86_64) SLKCFLAGS="-O2 -fPIC"; LIBDIRSUFFIX=64;;
+  i*86)   SLKCFLAGS="-O2"; LIBDIRSUFFIX=;;
+  *) echo "Unsupported ARCH" >&2; exit 1;;
+esac
+
+# Source tarball ships with a single top-level directory already.
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+mkdir -p $PRGNAM-$VERSION
+cd $PRGNAM-$VERSION
+tar xvf $CWD/$PRGNAM-$VERSION.tar.xz
+chown -R root:root . 2>/dev/null || true
+
+# version.py derives the build id from git or a VERSION file. The vendored
+# tarball has no .git, so pin it here for a deterministic in-binary version.
+echo "r4625~9619f8e2" > VERSION
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# Configure + build.
+#   --prefix=/usr              system install root
+#   -Dlibdir=/usr/lib64        Slackware multiarch path (game dll lands here)
+#   -Dsystem-wide=true         install into $prefix instead of a portable ./ tree
+#   --wrap-mode=nofallback   use system libraries, never build a wrap subproject
+meson setup build --prefix=/usr -Dlibdir=/usr/lib64 \
+                  -Dsystem-wide=true -Dlibcurl=enabled \
+                  --wrap-mode=nofallback
+meson compile -C build
+
+DESTDIR=$PKG meson install -C build
+
+# meson does not install the man pages; do it by hand (docutils RST source).
+if command -v rst2man >/dev/null 2>&1; then
+  rst2man man/q2pro.6.txt          > build/q2pro.6 2>/dev/null || true
+  rst2man man/q2proded.6.txt       > build/q2proded.6 2>/dev/null || true
+  install -D -m0644 build/q2pro.6        $PKG/usr/man/man6/q2pro.6        2>/dev/null || true
+  install -D -m0644 build/q2proded.6   $PKG/usr/man/man6/q2proded.6     2>/dev/null || true
+fi
+
+# Docs + this SlackBuild.
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a LICENSE*  $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cp -a README    $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cp $CWD/$PRGNAM.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+
+# meson leaves a redundant RUNPATH (/usr/lib64) on the client/server bins;
+# strip it (all libs resolve from the standard path anyway).
+command -v patchelf >/dev/null 2>&1 && for b in $PKG/usr/bin/q2repro $PKG/usr/bin/q2reproded; do
+  [ -e "$b" ] && patchelf --remove-rpath "$b" 2>/dev/null || true
+done
+
+# Strip + clean up.
+find $PKG -type f -name '*.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+find $PKG -type d -empty -delete 2>/dev/null || true
+
+# Install the description from the install/ subtree (not the archive root):
+# pkgtools reads install/slack-desc for the on-screen description and removes
+# it afterwards, so a root-level slack-desc would instead leak to /slack-desc.
+mkdir -p "$PKG/install"
+cp "$CWD/slack-desc" "$PKG/install/slack-desc"
+
+cd $PKG
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$ARCH-$BUILD.$TAG.$PKGTYPE

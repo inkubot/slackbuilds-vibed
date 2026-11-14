@@ -1,0 +1,11 @@
+q2repro: q2repro is an enhanced Quake II client and server (Q2PRO fork).
+q2repro:
+q2repro: A drop-in replacement for the Kex Quake II re-release engine.
+q2repro: Native OpenGL renderer, PNG/JPEG textures and OpenAL/SDL3 sound.
+q2repro: Ogg Theora cinematics with re-release content and netplay.
+q2repro: Ships q2repro (client), q2reproded (dedicated server) and
+q2repro: game_x86_64.so for /usr/lib64/q2repro/baseq2.
+q2repro:
+q2repro: Needs a patched (3.20) Quake II data copy under
+q2repro: /usr/lib64/q2repro/baseq2 to actually play.
+q2repro: https://github.com/res2k/q2repro
