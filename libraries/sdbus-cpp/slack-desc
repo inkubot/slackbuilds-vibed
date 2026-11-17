@@ -1,0 +1,11 @@
+sdbus-cpp: High-level C++ D-Bus library (on top of sd-bus / libelogind).
+sdbus-cpp: sdbus-c++ provides convenient C++ bindings for D-Bus, generated
+sdbus-cpp: from XML service definitions. Used by Noctalia for system D-Bus.
+sdbus-cpp: Communication. Links against libelogind (libsystemd not required).
+sdbus-cpp:
+sdbus-cpp:
+sdbus-cpp:
+sdbus-cpp:
+sdbus-cpp:
+sdbus-cpp:
+sdbus-cpp: https://github.com/Kistler-Group/sdbus-cpp

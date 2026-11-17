@@ -1,0 +1,69 @@
+#!/bin/bash
+# SlackBuild for sdbus-c++ (x86_64, Slackware -current)
+# High-level C++ D-Bus library on top of sd-bus.
+# Builds against elogind here (libsystemd is not installed).
+set -e
+
+CWD=$(pwd)
+PRGNAM=sdbus-cpp
+VERSION=${VERSION:-2.3.1}
+BUILD=${BUILD:-1}
+TAG=${TAG:-_vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+mkdir -p $TMP $PKG $OUTPUT
+
+case $ARCH in
+  x86_64) SLKCFLAGS="-O2 -fPIC"; LIBDIRSUFFIX=64;;
+  i*86)   SLKCFLAGS="-O2"; LIBDIRSUFFIX=;;
+  *) echo "Unsupported ARCH" >&2; exit 1;;
+esac
+
+# Source tarball ships under $PRGNAM-$VERSION/ (no "v" prefix).
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+tar xvf $CWD/$PRGNAM-$VERSION.tar.* 2>/dev/null
+
+cd $PRGNAM-$VERSION
+chown -R root:root . 2>/dev/null || true
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# ---- build (CMake) ----
+# Install prefix / lib64 are baked in, so the runtime can't be relocated.
+# Docs/tests/examples/codegen disabled to keep it a clean library build.
+cmake -B build \
+  -DCMAKE_INSTALL_PREFIX=/usr \
+  -DCMAKE_INSTALL_LIBDIR=lib64 \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DSDBUSCPP_BUILD_TESTS=OFF \
+  -DSDBUSCPP_BUILD_EXAMPLES=OFF \
+  -DSDBUSCPP_BUILD_DOCS=OFF \
+  -DSDBUSCPP_BUILD_CODEGEN=OFF \
+  -DBUILD_SHARED_LIBS=ON \
+  -DCMAKE_CXX_FLAGS="${SLKCFLAGS}"
+
+cmake --build build -j $(nproc)
+
+# ---- install ----
+DESTDIR=$PKG cmake --install build
+
+# ---- docs + self ----
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a COPYING* $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cp -a $CWD/README $PKG/usr/doc/$PRGNAM-$VERSION/
+cp $CWD/$PRGNAM.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/
+
+# ---- strip / compress ----
+find $PKG -type f -name '*.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+find $PKG -type d -empty -delete 2>/dev/null || true
+
+# install slack-desc so makepkg can build install/pkg-info (else DESC is empty)
+mkdir -p $PKG/install
+install -m 0644 $CWD/slack-desc $PKG/install/slack-desc
+
+cd $PKG
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$ARCH-$BUILD$TAG.$PKGTYPE

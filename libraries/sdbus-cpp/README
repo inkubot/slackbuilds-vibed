@@ -1,0 +1,52 @@
+sdbus-c++ v2.3.1 for Slackware -current (x86_64)
+================================================
+
+What it is
+----------
+sdbus-c++ is a high-level C++ library for D-Bus built on top of sd-bus
+(systemd's D-Bus stack). It lets C++ code expose and call D-Bus services
+generated from XML service definitions. Noctalia uses it for system D-Bus
+communication.
+
+Upstream: https://github.com/Kistler-Group/sdbus-cpp
+License: LGPL-2.1-only (with linking exception); see COPYING / COPYING-LGPL-Exception
+
+Dependencies
+------------
+* Build: gcc/g++ (C++17), CMake, pkg-config, ninja
+* Runtime link: libelogind (elogind is installed on this system).
+  The library also accepts libsystemd or basu, but only elogind's pkg-config
+  module ("libelogind", >= 238) is present here, so the build uses it. No
+  libsystemd or FetchContent/network access is required.
+
+Install layout
+--------------
+  /usr/lib64/libsdbus-c++.so.2.3.1 (+ SONAME/dev symlinks)
+  /usr/include/sdbus-c++/          (public headers)
+  /usr/lib64/pkgconfig/sdbus-c++.pc
+  /usr/lib64/cmake/sdbus-c++/      (CMake package config)
+
+Build options used (all in the .SlackBuild)
+-------------------------------------------
+  -DSDBUSCPP_BUILD_TESTS=OFF
+  -DSDBUSCPP_BUILD_EXAMPLES=OFF
+  -DSDBUSCPP_BUILD_DOCS=OFF
+  -DSDBUSCPP_BUILD_CODEGEN=OFF
+  -DBUILD_SHARED_LIBS=ON
+
+Source + checksum
+-----------------
+No tarball is published on the release page, so the GitHub archive is used:
+
+  https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/v2.3.1.tar.gz
+  MD5SUM  518781362360e93ab5658d86baab1c47
+  SHA256  3a289eded586c26d06c1387de72c7bf7c809527a70d51ba6401fe61059b19626
+
+The archive extracts to a top-level `sdbus-cpp-2.3.1/` directory.
+Download into the build dir and name it sdbus-cpp-2.3.1.tar.gz:
+
+  cd libraries/sdbus-cpp
+  source ./sdbus-cpp.info
+  wget -c $DOWNLOAD
+  mv v2.3.1.tar.gz sdbus-cpp-2.3.1.tar.gz
+  ./sdbus-cpp.SlackBuild

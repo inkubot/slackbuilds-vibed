@@ -1,0 +1,11 @@
+# sdbus-c++ info. MD5SUM from the real download (see README).
+PRGNAM="sdbus-cpp"
+VERSION="2.3.1"
+HOMEPAGE="https://github.com/Kistler-Group/sdbus-cpp"
+DOWNLOAD="https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/v2.3.1.tar.gz"
+FILE=""
+MD5SUM="518781362360e93ab5658d86baab1c47"
+#MD5SUM_x86_64=""
+#REQUIRES=""
+MAINTAINER="inkubot <inkubot@gmail.com>"
+EMAIL="inkubot@gmail.com"
