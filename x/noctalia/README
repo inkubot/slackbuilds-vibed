@@ -1,0 +1,64 @@
+Noctalia v5.5.0 for Slackware -current (x86_64)
+===============================================
+
+What it is
+----------
+Noctalia is a native Wayland desktop shell (bars, dock, launcher, control
+center, notifications, wallpaper, lock screen, session actions, clipboard
+history, OSDs, tray). It is built directly on Wayland + OpenGL ES with no Qt
+or GTK dependency.
+
+Upstream: https://github.com/noctalia-dev/noctalia
+License: MIT (see LICENSE)
+Build system: Meson + Ninja; C++23 (needs GCC 13+, system has 16.2)
+
+Runtime deps (all installed on this system)
+-------------------------------------------
+wayland, wayland-protocols, libepoxy, freetype2, fontconfig, cairo, pango,
+harfbuzz, libxkbcommon, glib2, libsecret, libsodium, libpipewire,
+wireplumber 0.5, polkit (agent+gobject), libcurl, libwebp, libjxl,
+libsndfile, librsvg, libqalculate, libxml2, nlohmann-json, tomlplusplus,
+libical, jemalloc, libpam.
+
+Non-core (SBo / built here) dependencies:
+  * sdbus-cpp   - high-level C++ D-Bus library (built in libraries/sdbus-cpp)
+  * md4c        - Markdown C parser (from the SBo repo)
+
+Optional at runtime (no build impact): upower, power-profiles-daemon,
+ddcutil, libheif (dlopen'd for HEIC/HEIF/AVIF), a Secret Service provider
+(GNOME Keyring / KWallet), sound-theme-freedesktop, a running PipeWire daemon
++ WirePlumber.
+
+Build options used (in the .SlackBuild)
+---------------------------------------
+  --prefix=/usr --libdir=lib64 --buildtype=release
+  -Djemalloc=enabled         # recommended on glibc
+  -Dtests=disabled
+  -Dnative_optimizations=false   # portable; do not enable for distro
+  -Dsystem_libraries=false         # use vendored Luau/fzy/MCU/Wuffs
+
+Install layout
+--------------
+  /usr/bin/noctalia
+  /usr/libexec/noctalia/noctalia-pam-helper   (lock screen auth)
+  /usr/share/noctalia/assets/                 (REQUIRED at runtime)
+  /usr/share/applications/dev.noctalia.*.desktop
+  /usr/share/icons/hicolor/scalable/apps/noctalia.svg
+  /usr/share/{bash-completion,zsh,fish} completions (generated)
+
+Source + checksum
+-----------------
+  https://github.com/noctalia-dev/noctalia/releases/download/v5.5.0/noctalia-v5.5.0.tar.gz
+  MD5SUM   424a8e2aa77ffdac693425e284e61b9f
+  SHA256   a4ba61392de6024905513d6b070cf40839809f61953468bda7eb8272f7a7aa16
+
+The archive extracts to a top-level `noctalia-release/` dir; the SlackBuild
+strips it to `noctalia-5.5.0/`. Download into the build dir and name it
+noctalia-5.5.0.tar.gz, then run ./noctalia.SlackBuild.
+
+Notes
+-----
+* Shell completions are not shipped upstream; they are generated from the
+  freshly built binary during install (optional, non-fatal).
+* The built prefix / datadir are compiled into the binary, so the package
+  must be installed at /usr (do not relocate the prefix after configure).

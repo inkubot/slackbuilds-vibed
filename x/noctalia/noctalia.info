@@ -1,0 +1,11 @@
+# Noctalia info. MD5SUM from the real download (see README).
+PRGNAM="noctalia"
+VERSION="5.5.0"
+HOMEPAGE="https://github.com/noctalia-dev/noctalia"
+DOWNLOAD="https://github.com/noctalia-dev/noctalia/releases/download/v5.5.0/noctalia-v5.5.0.tar.gz"
+FILE=""
+MD5SUM="424a8e2aa77ffdac693425e284e61b9f"
+#MD5SUM_x86_64=""
+REQUIRES="sdbus-cpp md4c"
+MAINTAINER="inkubot <inkubot@gmail.com>"
+EMAIL="inkubot@gmail.com"

@@ -1,0 +1,11 @@
+noctalia: A sleek, customizable desktop shell crafted for Wayland.
+noctalia: Provides bars, dock, launcher, control center, notifications,
+noctalia: wallpaper, lock screen and session actions. Built on Wayland
+noctalia: and OpenGL ES, with no Qt or GTK dependency.
+noctalia: Uses sdbus-c++ and elogind for system D-Bus access.
+noctalia:
+noctalia:
+noctalia:
+noctalia:
+noctalia:
+noctalia: https://github.com/noctalia-dev/noctalia

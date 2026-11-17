@@ -1,0 +1,87 @@
+#!/bin/bash
+# SlackBuild for Noctalia (x86_64, Slackware -current)
+# Native Wayland desktop shell. Built with Meson + Ninja.
+set -e
+
+CWD=$(pwd)
+PRGNAM=noctalia
+VERSION=${VERSION:-5.5.0}
+BUILD=${BUILD:-1}
+TAG=${TAG:-_vibed}
+PKGTYPE=${PKGTYPE:-txz}
+ARCH=$(uname -m)
+
+TMP=${TMP:-/tmp/$TAG}
+PKG=$TMP/package-$PRGNAM
+OUTPUT=${OUTPUT:-/tmp}
+mkdir -p $TMP $PKG $OUTPUT
+
+case $ARCH in
+  x86_64) SLKCFLAGS="-O2 -fPIC"; LIBDIRSUFFIX=64;;
+  i*86)   SLKCFLAGS="-O2"; LIBDIRSUFFIX=;;
+  *) echo "Unsupported ARCH" >&2; exit 1;;
+esac
+
+# Archive top-level dir is $PRGNAM-release; strip to $PRGNAM-$VERSION.
+cd $TMP
+rm -rf $PRGNAM-$VERSION
+mkdir -p $PRGNAM-$VERSION
+tar xzf $CWD/$PRGNAM-$VERSION.tar.* --strip-components=1 -C $PRGNAM-$VERSION
+
+cd $PRGNAM-$VERSION
+chown -R root:root . 2>/dev/null || true
+find . -type d -perm 750 -exec chmod 755 {} \; 2>/dev/null || true
+
+# ---- build (Meson) ----
+# Prefix / lib64 are baked into the binary via NOCTALIA_INSTALL_PREFIX /
+# NOCTALIA_INSTALL_DATADIR, so install with the same prefix.
+# jemalloc enabled (recommended on glibc); tests off; no native-only codegen.
+rm -rf build
+meson setup build \
+  --prefix=/usr \
+  --libdir=lib64 \
+  --buildtype=release \
+  -Djemalloc=enabled \
+  -Dtests=disabled \
+  -Dnative_optimizations=false \
+  -Dsystem_libraries=false
+
+meson compile -C build -j $(nproc)
+
+# ---- install ----
+DESTDIR=$PKG meson install -C build
+
+# ---- shell completions (not shipped upstream; generated from the binary) ----
+# Optional and non-fatal: running the binary should not break the install.
+if [ -x $PKG/usr/bin/noctalia ]; then
+  mkdir -p $PKG/usr/share/bash-completion/completions \
+           $PKG/usr/share/zsh/site-functions \
+           $PKG/usr/share/fish/vendor_completions.d
+  $PKG/usr/bin/noctalia completions bash > \
+    $PKG/usr/share/bash-completion/completions/noctalia 2>/dev/null || true
+  $PKG/usr/bin/noctalia completions zsh > \
+    $PKG/usr/share/zsh/site-functions/_noctalia 2>/dev/null || true
+  $PKG/usr/bin/noctalia completions fish > \
+    $PKG/usr/share/fish/vendor_completions.d/noctalia.fish 2>/dev/null || true
+fi
+
+# ---- docs + self ----
+mkdir -p $PKG/usr/doc/$PRGNAM-$VERSION
+cp -a LICENSE* $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cp -a README* $PKG/usr/doc/$PRGNAM-$VERSION/ 2>/dev/null || true
+cp -a $CWD/README $PKG/usr/doc/$PRGNAM-$VERSION/
+cp $CWD/$PRGNAM.SlackBuild $PKG/usr/doc/$PRGNAM-$VERSION/
+
+# ---- strip / compress ----
+find $PKG -type f -name '*.so*' -exec strip --strip-unneeded {} \; 2>/dev/null || true
+# Meson --buildtype=release keeps debug info; strip executables (sdbus-cpp-style
+# strip left the large noctalia binary unstripped).
+find $PKG -type f -perm -u+x ! -name '*.so*' -exec strip {} \; 2>/dev/null || true
+find $PKG -type d -empty -delete 2>/dev/null || true
+
+# install slack-desc so makepkg can build install/pkg-info (else DESC is empty)
+mkdir -p $PKG/install
+install -m 0644 $CWD/slack-desc $PKG/install/slack-desc
+
+cd $PKG
+makepkg -l y -c n $OUTPUT/$PRGNAM-$VERSION-$ARCH-$BUILD$TAG.$PKGTYPE
